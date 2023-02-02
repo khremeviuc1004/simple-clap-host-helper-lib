@@ -1,0 +1,21 @@
+[package]
+name = "simple-clap-host-helper-lib"
+version = "0.1.0"
+edition = "2021"
+
+license = "MIT"
+
+description = "A simple clap host helper library to help boostrap Rust DAW development based on code from https://github.com/free-audio/clap-validator"
+repository = "https://github.com/khremeviuc1004/simple-clap-host-helper-lib"
+
+[dependencies]
+anyhow = "1.0.58"
+clap-sys = { git = "https://github.com/robbert-vdh/clap-sys.git", rev = "f217cca4f41d4997bf23b06477765a809fa07c34" }
+crossbeam = "0.8.1"
+libloading = "0.7.3"
+log = "0.4"
+parking_lot = "0.12.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+walkdir = "2.3"
+
