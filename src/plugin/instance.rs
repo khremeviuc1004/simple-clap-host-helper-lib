@@ -227,4 +227,15 @@ impl Plugin {
 
         self.state.status.store(PluginStatus::Deactivated);
     }
+
+    /// Start the plugin processing. See
+    /// [plugin.h](https://github.com/free-audio/clap/blob/main/include/clap/plugin.h) for the
+    /// preconditions.
+    pub fn start_processing(&self) {
+        assert_plugin_state_eq!(self, PluginStatus::Activated);
+
+        unsafe_clap_call! { self.as_ptr()=>start_processing(self.as_ptr()) };
+
+        self.state.status.store(PluginStatus::Processing);
+    }
 }
