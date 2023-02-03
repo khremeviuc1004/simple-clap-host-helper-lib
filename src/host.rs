@@ -2,6 +2,7 @@
 
 use anyhow::Result;
 use clap_sys::ext::audio_ports::{clap_host_audio_ports, CLAP_EXT_AUDIO_PORTS};
+use clap_sys::ext::gui::{clap_host_gui, CLAP_EXT_GUI};
 use clap_sys::ext::note_ports::{
     clap_host_note_ports, clap_note_dialect, CLAP_EXT_NOTE_PORTS, CLAP_NOTE_DIALECT_CLAP,
     CLAP_NOTE_DIALECT_MIDI, CLAP_NOTE_DIALECT_MIDI_MPE,
@@ -11,6 +12,7 @@ use clap_sys::ext::params::{
 };
 use clap_sys::ext::state::{clap_host_state, CLAP_EXT_STATE};
 use clap_sys::ext::thread_check::{clap_host_thread_check, CLAP_EXT_THREAD_CHECK};
+use clap_sys::ext::timer_support::clap_host_timer_support;
 use clap_sys::host::clap_host;
 use clap_sys::id::clap_id;
 use clap_sys::plugin::clap_plugin;
@@ -73,6 +75,8 @@ pub struct Host {
     clap_host_params: clap_host_params,
     clap_host_state: clap_host_state,
     clap_host_thread_check: clap_host_thread_check,
+    clap_host_gui: clap_host_gui,
+    clap_host_timer_support: clap_host_timer_support,
 }
 
 /// Runtime information about a plugin instance. This keeps track of pending callbacks and things
@@ -155,7 +159,7 @@ impl InstanceState {
 
             status: AtomicCell::new(PluginStatus::default()),
 
-            audio_thread: AtomicCell::new(None),
+            audio_thread: AtomicCell::new(Some(std::thread::current().id())),
             requested_callback: AtomicBool::new(false),
             requested_restart: AtomicBool::new(false),
         });
@@ -248,6 +252,17 @@ impl Host {
                 is_main_thread: Some(Self::ext_thread_check_is_main_thread),
                 is_audio_thread: Some(Self::ext_thread_check_is_audio_thread),
             },
+            clap_host_gui: clap_host_gui { 
+                resize_hints_changed: Some(Self::ext_gui_is_resize_hints_changed), 
+                request_resize: Some(Self::ext_gui_is_request_resize), 
+                request_show: Some(Self::ext_gui_is_request_show), 
+                request_hide: Some(Self::ext_gui_is_request_hide), 
+                closed: Some(Self::ext_gui_closed),
+            },
+            clap_host_timer_support: clap_host_timer_support { 
+                register_timer: Some(Self::ext_timer_support_register_timer), 
+                unregister_timer: Some(Self::ext_timer_support_unregister_timer) 
+            },
         })
     }
 
@@ -339,7 +354,7 @@ impl Host {
                     .compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst)
                     .is_ok()
                 {
-                    log::trace!(
+                    log::error!(
                         "Calling 'clap_plugin::on_main_thread()' in response to a call to \
                          'clap_host::request_restart()'",
                     );
@@ -448,16 +463,27 @@ impl Host {
         // add that when test cases need it.
         let extension_id_cstr = CStr::from_ptr(extension_id);
         if extension_id_cstr == CLAP_EXT_AUDIO_PORTS {
+            println!("Host extension requested: audio ports");
             &this.clap_host_audio_ports as *const _ as *const c_void
         } else if extension_id_cstr == CLAP_EXT_NOTE_PORTS {
+            println!("Host extension requested: note ports");
             &this.clap_host_note_ports as *const _ as *const c_void
         } else if extension_id_cstr == CLAP_EXT_PARAMS {
+            println!("Host extension requested: params");
             &this.clap_host_params as *const _ as *const c_void
         } else if extension_id_cstr == CLAP_EXT_STATE {
+            println!("Host extension requested: state");
             &this.clap_host_state as *const _ as *const c_void
         } else if extension_id_cstr == CLAP_EXT_THREAD_CHECK {
+            println!("Host extension requested: thread chack");
             &this.clap_host_thread_check as *const _ as *const c_void
+        } else if extension_id_cstr == CLAP_EXT_GUI {
+            println!("Host extension requested: gui");
+            &this.clap_host_gui as *const _ as *const c_void
         } else {
+            if let Ok(unkown) = extension_id_cstr.to_str() {
+                println!("Host extension requested: unknown - '{}'", unkown);
+            }
             std::ptr::null()
         }
     }
@@ -593,5 +619,71 @@ impl Host {
         let (_, this) = InstanceState::from_clap_host_ptr(host);
 
         this.is_audio_thread(std::thread::current().id())
+    }
+
+    unsafe extern "C" fn ext_gui_is_resize_hints_changed(host: *const clap_host) {
+        check_null_ptr!((), host, (*host).host_data);
+        let (_, this) = InstanceState::from_clap_host_ptr(host);
+
+        log::info!("TODO: Handle 'clap_host_gui::resize_hints_changed()'");
+        println!("TODO: Handle 'clap_host_gui::resize_hints_changed()'");
+    }
+
+    unsafe extern "C" fn ext_gui_is_request_resize(host: *const clap_host, width: u32, height: u32) -> bool {
+        check_null_ptr!(false, host, (*host).host_data);
+        let (_, this) = InstanceState::from_clap_host_ptr(host);
+
+        log::info!("TODO: Handle 'clap_host_gui::request_resize()'");
+        println!("TODO: Handle 'clap_host_gui::request_resize()'");
+
+        true
+    }
+
+    unsafe extern "C" fn ext_gui_is_request_show(host: *const clap_host) -> bool {
+        check_null_ptr!(false, host, (*host).host_data);
+        let (_, this) = InstanceState::from_clap_host_ptr(host);
+
+        log::info!("TODO: Handle 'clap_host_gui::request_show()'");
+        println!("TODO: Handle 'clap_host_gui::request_show()'");
+
+        true
+    }
+
+    unsafe extern "C" fn ext_gui_is_request_hide(host: *const clap_host) -> bool {
+        check_null_ptr!(false, host, (*host).host_data);
+        let (_, this) = InstanceState::from_clap_host_ptr(host);
+
+        log::info!("TODO: Handle 'clap_host_gui::request_hide()'");
+        println!("TODO: Handle 'clap_host_gui::request_hide()'");
+
+        true
+    }
+
+    unsafe extern "C" fn ext_gui_closed(host: *const clap_host, was_destroyed: bool) {
+        check_null_ptr!((), host, (*host).host_data);
+        let (_, this) = InstanceState::from_clap_host_ptr(host);
+
+        log::info!("TODO: Handle 'clap_host_gui::closed()'");
+        println!("TODO: Handle 'clap_host_gui::closed()'");
+    }
+
+    unsafe extern "C" fn ext_timer_support_register_timer(host: *const clap_host, period: u32, timer_id: *mut clap_id) -> bool {
+        check_null_ptr!(false, host, (*host).host_data);
+        let (_, this) = InstanceState::from_clap_host_ptr(host);
+
+        log::info!("TODO: Handle 'clap_host_timer_support::register_timer()'");
+        println!("TODO: Handle 'clap_host_timer_support::register_timer()'");
+
+        true
+    }
+
+    unsafe extern "C" fn ext_timer_support_unregister_timer(host: *const clap_host, timer_id: clap_id) -> bool {
+        check_null_ptr!(false, host, (*host).host_data);
+        let (_, this) = InstanceState::from_clap_host_ptr(host);
+
+        log::info!("TODO: Handle 'clap_host_timer_support::unregister_timer()'");
+        println!("TODO: Handle 'clap_host_timer_support::unregister_timer()'");
+
+        true
     }
 }
