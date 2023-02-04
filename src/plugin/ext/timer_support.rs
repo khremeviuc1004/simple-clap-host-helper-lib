@@ -19,7 +19,7 @@ pub struct TimerSupport {
     timer_support: NonNull<clap_plugin_timer_support>,
 }
 
-impl Extension<Plugin> for TimerSupport {
+impl Extension<&Plugin> for TimerSupport {
     const EXTENSION_ID: &'static CStr = CLAP_EXT_TIMER_SUPPORT;
 
     type Struct = clap_plugin_timer_support;

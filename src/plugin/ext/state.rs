@@ -51,7 +51,7 @@ struct OutputStream {
     max_write_size: Option<usize>,
 }
 
-impl Extension<Plugin> for State {
+impl Extension<&Plugin> for State {
     const EXTENSION_ID: &'static CStr = CLAP_EXT_STATE;
 
     type Struct = clap_plugin_state;
