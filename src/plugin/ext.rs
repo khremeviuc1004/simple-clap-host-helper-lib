@@ -10,6 +10,8 @@ pub mod note_ports;
 pub mod params;
 pub mod state;
 pub mod timer_support;
+pub mod posix_fd_support;
+pub mod gui;
 
 /// An abstraction for a CLAP plugin extension. `P` here is the plugin type. In practice, this is
 /// either `Plugin` or `PluginAudioThread`. Abstractions for main thread functions will implement

@@ -1,17 +1,13 @@
 //! Abstractions for interacting with the `state` extension.
 
-use anyhow::Result;
 use clap_sys::ext::timer_support::{clap_plugin_timer_support, CLAP_EXT_TIMER_SUPPORT};
 use clap_sys::id::clap_id;
-use parking_lot::Mutex;
-use std::ffi::{c_void, CStr};
-use std::pin::Pin;
+use std::ffi::{CStr};
 use std::ptr::NonNull;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::Extension;
 use crate::plugin::instance::Plugin;
-use crate::util::{check_null_ptr, unsafe_clap_call};
+use crate::util::{unsafe_clap_call};
 
 /// Abstraction for the `timer support` extension covering the main thread functionality.
 #[derive(Debug)]

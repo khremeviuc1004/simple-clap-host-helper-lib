@@ -10,9 +10,10 @@ use clap_sys::ext::note_ports::{
 use clap_sys::ext::params::{
     clap_host_params, clap_param_clear_flags, clap_param_rescan_flags, CLAP_EXT_PARAMS,
 };
+use clap_sys::ext::posix_fd_support::{clap_host_posix_fd_support, clap_posix_fd_flags, CLAP_EXT_POSIX_FD_SUPPORT};
 use clap_sys::ext::state::{clap_host_state, CLAP_EXT_STATE};
 use clap_sys::ext::thread_check::{clap_host_thread_check, CLAP_EXT_THREAD_CHECK};
-use clap_sys::ext::timer_support::clap_host_timer_support;
+use clap_sys::ext::timer_support::{clap_host_timer_support, CLAP_EXT_TIMER_SUPPORT};
 use clap_sys::host::clap_host;
 use clap_sys::id::clap_id;
 use clap_sys::plugin::clap_plugin;
@@ -77,6 +78,9 @@ pub struct Host {
     clap_host_thread_check: clap_host_thread_check,
     clap_host_gui: clap_host_gui,
     clap_host_timer_support: clap_host_timer_support,
+    clap_host_posix_fd_support: clap_host_posix_fd_support,
+
+    gui_request_resize_from_daw_callback: channel::Sender<DAWCallback>,
 }
 
 /// Runtime information about a plugin instance. This keeps track of pending callbacks and things
@@ -129,6 +133,10 @@ pub enum CallbackTask {
     Poll,
     /// Stop blocking and return from [`Host::handle_callbacks_blocking()`].
     Stop,
+}
+
+pub enum DAWCallback {
+    PluginGuiWindowRequestResize(u32, u32),
 }
 
 impl InstanceState {
@@ -215,7 +223,7 @@ impl InstanceState {
 impl Host {
     /// Initialize a CLAP host. The thread this object is created on will be designated as the main
     /// thread for the purposes of the thread safety checks.
-    pub fn new() -> Arc<Host> {
+    pub fn new(daw_callback: channel::Sender<DAWCallback>) -> Arc<Host> {
         // Normally you'd of course use bounded channel to avoid unnecessary allocations, but since
         // we're a validator it's probably better to not have to deal with the possibility that a
         // queue is full. These are used for handling callbacks on the main thread while the audio
@@ -263,6 +271,12 @@ impl Host {
                 register_timer: Some(Self::ext_timer_support_register_timer), 
                 unregister_timer: Some(Self::ext_timer_support_unregister_timer) 
             },
+            clap_host_posix_fd_support: clap_host_posix_fd_support { 
+                register_fd: Some(Self::ext_posix_fd_support_register_fd), 
+                modify_fd: Some(Self::ext_posix_fd_support_modify_fd), 
+                unregister_fd: Some(Self::ext_posix_fd_support_unregister_fd) 
+            },
+            gui_request_resize_from_daw_callback: daw_callback,
         })
     }
 
@@ -480,6 +494,12 @@ impl Host {
         } else if extension_id_cstr == CLAP_EXT_GUI {
             println!("Host extension requested: gui");
             &this.clap_host_gui as *const _ as *const c_void
+        } else if extension_id_cstr == CLAP_EXT_TIMER_SUPPORT {
+            println!("Host extension requested: timer support");
+            &this.clap_host_timer_support as *const _ as *const c_void
+        } else if extension_id_cstr == CLAP_EXT_POSIX_FD_SUPPORT {
+            println!("Host extension requested: posix fd support");
+            &this.clap_host_posix_fd_support as *const _ as *const c_void
         } else {
             if let Ok(unkown) = extension_id_cstr.to_str() {
                 println!("Host extension requested: unknown - '{}'", unkown);
@@ -518,7 +538,7 @@ impl Host {
         check_null_ptr!((), host, (*host).host_data);
         let (instance, this) = InstanceState::from_clap_host_ptr(host);
 
-        // This this is either handled by `handle_callbacks_blocking()` while the audio thread is
+        // This is either handled by `handle_callbacks_blocking()` while the audio thread is
         // active, or by an explicit call to `handle_callbacks_once()`. We print a warning if the
         // callback is not handled before the plugin is destroyed.
         log::trace!("'clap_host::request_callback()' was called by the plugin, setting the flag");
@@ -636,6 +656,8 @@ impl Host {
         log::info!("TODO: Handle 'clap_host_gui::request_resize()'");
         println!("TODO: Handle 'clap_host_gui::request_resize()'");
 
+        let _ = this.gui_request_resize_from_daw_callback.send(DAWCallback::PluginGuiWindowRequestResize(width, height));
+
         true
     }
 
@@ -672,7 +694,14 @@ impl Host {
         let (_, this) = InstanceState::from_clap_host_ptr(host);
 
         log::info!("TODO: Handle 'clap_host_timer_support::register_timer()'");
-        println!("TODO: Handle 'clap_host_timer_support::register_timer()'");
+        let timer_id = if let Some(timer_id) = timer_id.as_ref() {
+            *timer_id
+        }
+        else {
+            999
+        };
+        println!("TODO: Handle 'clap_host_timer_support::register_timer()': period={}, timer_id={}", period, timer_id);
+
 
         true
     }
@@ -682,7 +711,37 @@ impl Host {
         let (_, this) = InstanceState::from_clap_host_ptr(host);
 
         log::info!("TODO: Handle 'clap_host_timer_support::unregister_timer()'");
-        println!("TODO: Handle 'clap_host_timer_support::unregister_timer()'");
+        println!("TODO: Handle 'clap_host_timer_support::unregister_timer()': timer_id={}", timer_id);
+
+        true
+    }
+
+    unsafe extern "C" fn ext_posix_fd_support_register_fd(host: *const clap_host, fd: i32, flags: clap_posix_fd_flags) -> bool {
+        check_null_ptr!(false, host, (*host).host_data);
+        let (_, this) = InstanceState::from_clap_host_ptr(host);
+
+        log::info!("TODO: Handle 'clap_host_posix_fd_support::register_fd()'");
+        println!("TODO: Handle 'clap_host_posix_fd_support::register_fd()': fd={}, flags={}", fd, flags);
+
+        true
+    }
+
+    unsafe extern "C" fn ext_posix_fd_support_modify_fd(host: *const clap_host, fd: i32, flags: clap_posix_fd_flags) -> bool {
+        check_null_ptr!(false, host, (*host).host_data);
+        let (_, this) = InstanceState::from_clap_host_ptr(host);
+
+        log::info!("TODO: Handle 'clap_host_posix_fd_support::modify_fd()'");
+        println!("TODO: Handle 'clap_host_posix_fd_support::modify_fd()': fd={}, flags={}", fd, flags);
+
+        true
+    }
+
+    unsafe extern "C" fn ext_posix_fd_support_unregister_fd(host: *const clap_host, fd: i32) -> bool {
+        check_null_ptr!(false, host, (*host).host_data);
+        let (_, this) = InstanceState::from_clap_host_ptr(host);
+
+        log::info!("TODO: Handle 'clap_host_posix_fd_support::unregister_fd()'");
+        println!("TODO: Handle 'clap_host_posix_fd_support::unregister_fd()': fd={}", fd);
 
         true
     }
