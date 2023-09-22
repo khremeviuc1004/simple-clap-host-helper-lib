@@ -11,9 +11,8 @@ use std::ptr::NonNull;
 use std::sync::Arc;
 
 use super::ext::Extension;
-use super::library::PluginLibrary;
 use super::{assert_plugin_state_eq, assert_plugin_state_initialized};
-use crate::host::{CallbackTask, Host, InstanceState};
+use crate::host::{Host, InstanceState};
 use crate::util::unsafe_clap_call;
 
 pub mod process;

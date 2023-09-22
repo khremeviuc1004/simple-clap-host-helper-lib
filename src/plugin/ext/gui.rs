@@ -1,7 +1,7 @@
 //! Abstractions for interacting with the `state` extension.
 
 use clap_sys::ext::gui::{clap_plugin_gui, CLAP_EXT_GUI, clap_window, clap_gui_resize_hints};
-use std::ffi::{CStr, c_char, CString};
+use std::ffi::{CStr, c_char};
 use std::ptr::NonNull;
 
 use super::Extension;
