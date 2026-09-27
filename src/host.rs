@@ -653,8 +653,9 @@ impl Host {
         check_null_ptr!(false, host, (*host).host_data);
         let (_, this) = InstanceState::from_clap_host_ptr(host);
 
-        log::info!("TODO: Handle 'clap_host_gui::request_resize()'");
-        println!("TODO: Handle 'clap_host_gui::request_resize()'");
+        // Forwarded to the DAW, which answers the request by applying
+        // clap_plugin_gui::set_size() and resizing the host window to match.
+        log::debug!("Plugin requested a GUI resize to {}x{}, relaying to the DAW.", width, height);
 
         let _ = this.gui_request_resize_from_daw_callback.send(DAWCallback::PluginGuiWindowRequestResize(width, height));
 
