@@ -248,4 +248,79 @@ impl Plugin {
 
         self.state.status.store(PluginStatus::Activated);
     }
+
+    /// A thread-safe raw handle for the plugin's audio-thread functions. Use this when
+    /// the host runs `start_processing`/`stop_processing`/`process` from its audio
+    /// thread while the `Plugin` wrapper itself stays pinned to the main thread that
+    /// created it (CLAP marks those as audio-thread functions).
+    pub fn raw_handle(&self) -> PluginRawHandle {
+        PluginRawHandle {
+            handle: self.handle,
+            status: NonNull::from(&self.state.status),
+        }
+    }
+
+    /// Start the plugin processing from the audio thread. See [`Self::raw_handle()`].
+    pub fn start_processing_from_audio_thread(&self) {
+        self.raw_handle().start_processing()
+    }
+
+    /// Stop the plugin processing from the audio thread. See [`Self::raw_handle()`].
+    pub fn stop_processing_from_audio_thread(&self) {
+        self.raw_handle().stop_processing()
+    }
+}
+
+/// A thread-safe handle for invoking the plugin's audio-thread functions
+/// (`start_processing`, `stop_processing`, and raw `process` calls via [`as_ptr()`])
+/// from the host's audio thread. CLAP marks these as audio-thread functions, so they
+/// must not run on the main thread; this handle lets a host keep the `Plugin` wrapper
+/// on its main thread while the audio thread drives processing. The shared status
+/// cell is updated so the main-thread wrapper's state assertions stay accurate.
+///
+/// SAFETY CONTRACT: the [`Plugin`] (and thus the `InstanceState` whose status cell
+/// this points into) must outlive every use of this handle - the host must stop
+/// using the raw handle before the plugin instance is destroyed.
+#[derive(Debug, Clone, Copy)]
+pub struct PluginRawHandle {
+    handle: PluginHandle,
+    status: NonNull<crossbeam::atomic::AtomicCell<PluginStatus>>,
+}
+
+// SAFETY: only used to call CLAP's audio-thread functions and to update the shared
+// status cell (which is internally atomic); see the type-level safety contract.
+unsafe impl Send for PluginRawHandle {}
+unsafe impl Sync for PluginRawHandle {}
+
+impl PluginRawHandle {
+    /// The raw `clap_plugin` pointer, for calling the plugin's `process()`.
+    pub fn as_ptr(&self) -> *const clap_plugin {
+        self.handle.0.as_ptr()
+    }
+
+    /// Start the plugin's processing (call on the audio thread).
+    pub fn start_processing(&self) {
+        let plugin = self.handle.0.as_ptr();
+        unsafe {
+            match (*plugin).start_processing {
+                Some(start_processing) => { let _ = start_processing(plugin); }
+                None => panic!("'clap_plugin::start_processing' is a null pointer, but this is not allowed"),
+            }
+        }
+
+        unsafe { self.status.as_ref() }.store(PluginStatus::Processing);
+    }
+
+    /// Stop the plugin's processing (call on the audio thread).
+    pub fn stop_processing(&self) {
+        let plugin = self.handle.0.as_ptr();
+        unsafe {
+            match (*plugin).stop_processing {
+                Some(stop_processing) => { let _ = stop_processing(plugin); }
+                None => panic!("'clap_plugin::stop_processing' is a null pointer, but this is not allowed"),
+            }
+        }
+
+        unsafe { self.status.as_ref() }.store(PluginStatus::Activated);
+    }
 }
